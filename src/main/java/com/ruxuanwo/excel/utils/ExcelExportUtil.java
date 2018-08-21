@@ -18,7 +18,7 @@ import java.util.List;
 /**
  * Excel导出工具
  *
- * @author chenbin on 2017-09-12
+ * @author chenbin
  * @version 1.1.0
  */
 public class ExcelExportUtil {
@@ -28,30 +28,31 @@ public class ExcelExportUtil {
     /**
      * 导出Excel对象
      *
-     * @param dataListArr  Excel数据
+     * @param dataListArr Excel数据
      * @return
      */
-    public static Workbook exportWorkbook(List<?>... dataListArr){
+    public static Workbook exportWorkbook(List<?>... dataListArr) {
 
         // data array valid
-        if (dataListArr==null || dataListArr.length==0) {
+        if (dataListArr == null || dataListArr.length == 0) {
             throw new RuntimeException(">>>>>>>>>>> xxl-excel error, data array can not be empty.");
         }
 
         // book
-        Workbook workbook = new HSSFWorkbook();     // HSSFWorkbook=2003/xls、XSSFWorkbook=2007/xlsx
+        // HSSFWorkbook=2003/xls、XSSFWorkbook=2007/xlsx
+        Workbook workbook = new HSSFWorkbook();
 
         // sheet
-        for (List<?> dataList: dataListArr) {
+        for (List<?> dataList : dataListArr) {
             makeSheet(workbook, dataList);
         }
 
         return workbook;
     }
 
-    private static void makeSheet(Workbook workbook, List<?> dataList){
+    private static void makeSheet(Workbook workbook, List<?> dataList) {
         // data
-        if (dataList==null || dataList.size()==0) {
+        if (dataList == null || dataList.size() == 0) {
             throw new RuntimeException(">>>>>>>>>>> xxl-excel error, data can not be empty.");
         }
 
@@ -62,7 +63,7 @@ public class ExcelExportUtil {
         String sheetName = dataList.get(0).getClass().getSimpleName();
         HSSFColor.HSSFColorPredefined headColor = null;
         if (excelSheet != null) {
-            if (excelSheet.name()!=null && excelSheet.name().trim().length()>0) {
+            if (excelSheet.name() != null && excelSheet.name().trim().length() > 0) {
                 sheetName = excelSheet.name().trim();
             }
             headColor = excelSheet.headColor();
@@ -70,8 +71,10 @@ public class ExcelExportUtil {
 
         Sheet existSheet = workbook.getSheet(sheetName);
         if (existSheet != null) {
-            for (int i = 2; i <= 1000; i++) {
-                String newSheetName = sheetName.concat(String.valueOf(i));  // avoid sheetName repetition
+            int num = 2, maxNum = 1000;
+            for (int i = num; i <= maxNum; i++) {
+                // avoid sheetName repetition
+                String newSheetName = sheetName.concat(String.valueOf(i));
                 existSheet = workbook.getSheet(newSheetName);
                 if (existSheet == null) {
                     sheetName = newSheetName;
@@ -84,18 +87,22 @@ public class ExcelExportUtil {
 
         Sheet sheet = workbook.createSheet(sheetName);
 
+
         // sheet field
         List<Field> fields = new ArrayList<Field>();
-        if (sheetClass.getDeclaredFields()!=null && sheetClass.getDeclaredFields().length>0) {
-            for (Field field: sheetClass.getDeclaredFields()) {
+        if (sheetClass.getDeclaredFields() != null && sheetClass.getDeclaredFields().length > 0) {
+            for (Field field : sheetClass.getDeclaredFields()) {
                 if (Modifier.isStatic(field.getModifiers())) {
                     continue;
                 }
-                fields.add(field);
+                ExcelField excelField = field.getAnnotation(ExcelField.class);
+                if (excelField != null){
+                    fields.add(field);
+                }
             }
         }
 
-        if (fields==null || fields.size()==0) {
+        if (fields == null || fields.size() == 0) {
             throw new RuntimeException(">>>>>>>>>>> xxl-excel error, data field can not be empty.");
         }
 
@@ -103,9 +110,6 @@ public class ExcelExportUtil {
         CellStyle headStyle = null;
         if (headColor != null) {
             headStyle = workbook.createCellStyle();
-            /*Font headFont = book.createFont();
-            headFont.setColor(headColor);
-            headStyle.setFont(headFont);*/
 
             headStyle.setFillForegroundColor(headColor.getIndex());
             headStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
@@ -117,37 +121,43 @@ public class ExcelExportUtil {
         for (int i = 0; i < fields.size(); i++) {
             Field field = fields.get(i);
             ExcelField excelField = field.getAnnotation(ExcelField.class);
-            String fieldName = (excelField!=null && excelField.name()!=null && excelField.name().trim().length()>0)?excelField.name():field.getName();
-            int fieldWidth = (excelField!=null)?excelField.width():0;
+            if (excelField != null && excelField.name() != null && excelField.name().trim().length() > 0){
+                String fieldName = excelField.name();
+                int fieldWidth = excelField.width();
 
-            Cell cellX = headRow.createCell(i, CellType.STRING);
-            if (headStyle != null) {
-                cellX.setCellStyle(headStyle);
+                Cell cellX = headRow.createCell(i, CellType.STRING);
+                if (headStyle != null) {
+                    cellX.setCellStyle(headStyle);
+                }
+                if (fieldWidth > 0) {
+                    sheet.setColumnWidth(i, fieldWidth);
+                    ifSetWidth = true;
+                }
+                cellX.setCellValue(String.valueOf(fieldName));
             }
-            if (fieldWidth > 0) {
-                sheet.setColumnWidth(i, fieldWidth);
-                ifSetWidth = true;
-            }
-            cellX.setCellValue(String.valueOf(fieldName));
         }
 
         // sheet data rows
         for (int dataIndex = 0; dataIndex < dataList.size(); dataIndex++) {
-            int rowIndex = dataIndex+1;
+            int rowIndex = dataIndex + 1;
             Object rowData = dataList.get(dataIndex);
 
             Row rowX = sheet.createRow(rowIndex);
-
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
                 try {
-                    field.setAccessible(true);
-                    Object fieldValue = field.get(rowData);
 
-                    String fieldValueString = FieldReflectionUtil.formatValue(field, fieldValue);
+                        field.setAccessible(true);
+                        Object fieldValue = field.get(rowData);
 
-                    Cell cellX = rowX.createCell(i, CellType.STRING);
-                    cellX.setCellValue(fieldValueString);
+                        String fieldValueString = FieldReflectionUtil.formatValue(field, fieldValue);
+                        if (fieldValueString != null && "".equals(fieldValueString)){
+
+                            Cell cellX = rowX.createCell(i, CellType.STRING);
+                            cellX.setCellValue(fieldValueString);
+
+                    }
+
                 } catch (IllegalAccessException e) {
                     logger.error(e.getMessage(), e);
                     throw new RuntimeException(e);
@@ -157,7 +167,10 @@ public class ExcelExportUtil {
 
         if (!ifSetWidth) {
             for (int i = 0; i < fields.size(); i++) {
-                sheet.autoSizeColumn((short)i);
+                ExcelField excelField = fields.get(i).getAnnotation(ExcelField.class);
+                if (excelField != null) {
+                    sheet.autoSizeColumn((short) i);
+                }
             }
         }
     }
@@ -168,7 +181,7 @@ public class ExcelExportUtil {
      * @param filePath
      * @param dataList
      */
-    public static void exportToFile(String filePath, List<?>... dataList){
+    public static void exportToFile(String filePath, List<?>... dataList) {
         // workbook
         Workbook workbook = exportWorkbook(dataList);
 
@@ -185,7 +198,7 @@ public class ExcelExportUtil {
             throw new RuntimeException(e);
         } finally {
             try {
-                if (fileOutputStream!=null) {
+                if (fileOutputStream != null) {
                     fileOutputStream.close();
                 }
             } catch (Exception e) {
@@ -201,7 +214,7 @@ public class ExcelExportUtil {
      * @param dataList
      * @return
      */
-    public static byte[] exportToBytes(List<?>... dataList){
+    public static byte[] exportToBytes(List<?>... dataList) {
         // workbook
         Workbook workbook = exportWorkbook(dataList);
 
