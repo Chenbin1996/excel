@@ -151,7 +151,7 @@ public class ExcelExportUtil {
                         Object fieldValue = field.get(rowData);
 
                         String fieldValueString = FieldReflectionUtil.formatValue(field, fieldValue);
-                        if (fieldValueString != null && "".equals(fieldValueString)){
+                        if (fieldValueString != null && !"".equals(fieldValueString)){
 
                             Cell cellX = rowX.createCell(i, CellType.STRING);
                             cellX.setCellValue(fieldValueString);
